@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en"> 
+<meta charset="utf-8"/>
+<!--
+
+MIT No Attribution
+
+Copyright 2019 Amazon.com, Inc. or its affiliates.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this
+software and associated documentation files (the "Software"), to deal in the Software
+without restriction, including without limitation the rights to use, copy, modify,
+merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+A copy of the License is located at https://github.com/aws/mit-0
+-->
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <title>AWS CodeBuild - Polyglot Application.</title>
+    <style>
+      table { table-layout: auto; font-family: arial, sans-serif;border-collapse: collapse;width: 180px}
+      td, th {border: 1px solid #dddddd;text-align: left;padding: 8px;}
+      tr:nth-child(even) {background-color: #dddddd;}
+    </style>
+  </head>
+
+  <body>
+    <script type="text/javascript">
+    var nameUrl = 'http://127.0.0.1:3001';
+    var webAppUrl = 'http://127.0.0.1:3002';
+    var httpGetAsync = function() {
+      this.get = function(Url, callback) {
+        const Http = new XMLHttpRequest();
+        Http.onreadystatechange = function() { 
+          if (Http.readyState == 4 && Http.status == 200)
+            callback(Http.responseText);
+        }
+        Http.open("GET", Url, true);
+        Http.send(null);
+      }
+    }
+    
+    function listUsers()
+    {
+      var client = new httpGetAsync();
+      client.get(nameUrl.concat('/resources/names'), function(response) {
+        users = JSON.parse(response)
+        users.sort(function(x,y){return x['Id']-y['Id']});
+        tbl = document.getElementById('allusers');
+        thead = tbl.createTHead();
+        tr = thead.insertRow();
+        tr.style.fontSize = 'large';
+        tr.style.fontWeight = 'bolder';
+        td = tr.insertCell();
+        td.appendChild(document.createTextNode('Id'));
+        td = tr.insertCell();
+        td.appendChild(document.createTextNode('Name'));
+        for(var i=0; i<users.length; i++)
+        {
+            tr = tbl.insertRow();
+            td = tr.insertCell();
+            td.appendChild(document.createTextNode(users[i].Id));
+            td = tr.insertCell();
+            td.appendChild(document.createTextNode(users[i].Name));
+        }
+      });
+    }
+
+    function getUserByID()
+    {
+      var client = new httpGetAsync();
+      var userId = document.getElementById('userID').value;
+      console.log(userId)
+      var url = nameUrl + '/resources/names/' + userId
+      client.get(url, function(response) {
+        // user = JSON.parse(response)
+        console.log(response)
+        key_cont = document.getElementById('userdetails');
+        key_cont.innerHTML = 'Name of user with Id '+ userId + '</b>\' is \'<b>' + response + '\'<b>.Name';
+      });
+    }
+    </script>
+    <h1>Polyglot Application built using AWS CodeBuild.</h1>
+    <button id="listusers" type="button" onclick = "listUsers()">List All Users!!!</button>
+    <table id='allusers' border='1'></table>
+    </br>
+    </br>
+    Enter one of the Id to get the Name 
+    <input type="number" id="userID" name="userID" maxlength="1" min="1" max="7" style="width: 3em">
+    and click 
+    <button id="submitUser" onclick="getUserByID()">Submit</button>
+    <p id = "userdetails"></p>
+    <p id = "usergreeting"></p>
+    <script>
+      function getUserByID()
+      {
+        var client = new httpGetAsync();
+        var userId = document.getElementById('userID').value;
+        var url = nameUrl + '/resources/names/' + userId
+        client.get(url, function(response) {
+          user = JSON.parse(response)
+          key_cont = document.getElementById('userdetails');
+          key_cont.innerHTML = 'Name of user with Id ' + userId + ' is <b>' + response + '</b>.';
+        });
+        var wurl = webAppUrl + '/' + userId
+        client.get(wurl, function(response) {
+          wans = response
+          key_cont = document.getElementById('usergreeting');
+          key_cont.innerHTML = '</br>' + wans;
+        });
+      }
+    </script>
+  </body>
+</html>

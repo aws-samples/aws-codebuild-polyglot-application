@@ -1,0 +1,12 @@
+{
+ "WebAppFunction": {
+   "GREETING_SERVICE_HOST": "CODEBUILD_IP",
+   "GREETING_SERVICE_PORT": "3000",
+   "GREETING_SERVICE_PATH": "/resources/greeting",
+   "GREETING_SERVICE_SCHEME": "http",
+   "NAME_SERVICE_HOST": "CODEBUILD_IP",
+   "NAME_SERVICE_PORT": "3001",
+   "NAME_SERVICE_PATH": "/resources/names",
+   "NAME_SERVICE_SCHEME": "http"
+ }
+}

@@ -1,0 +1,90 @@
+{
+    "RequestItems": {
+        "NamesTable": [
+            {
+                "PutRequest": {
+                    "Item": {
+                        "Id": {
+                            "S": "1"
+                        },
+                        "Name": {
+                            "S": "Prakash"
+                        }
+                    }
+                }
+            },
+            {
+                "PutRequest": {
+                    "Item": {
+                        "Id": {
+                            "S": "2"
+                        },
+                        "Name": {
+                            "S": "Sheldon"
+                        }
+                    }
+                }
+            },
+            {
+                "PutRequest": {
+                    "Item": {
+                        "Id": {
+                            "S": "3"
+                        },
+                        "Name": {
+                            "S": "Leonard"
+                        }
+                    }
+                }
+            },
+            {
+                "PutRequest": {
+                    "Item": {
+                        "Id": {
+                            "S": "4"
+                        },
+                        "Name": {
+                            "S": "Howard"
+                        }
+                    }
+                }
+            },
+            {
+                "PutRequest": {
+                    "Item": {
+                        "Id": {
+                            "S": "5"
+                        },
+                        "Name": {
+                            "S": "Raj"
+                        }
+                    }
+                }
+            },
+            {
+                "PutRequest": {
+                    "Item": {
+                        "Id": {
+                            "S": "6"
+                        },
+                        "Name": {
+                            "S": "Amy"
+                        }
+                    }
+                }
+            },
+            {
+                "PutRequest": {
+                    "Item": {
+                        "Id": {
+                            "S": "7"
+                        },
+                        "Name": {
+                            "S": "Bernadette"
+                        }
+                    }
+                }
+            }
+        ]
+    }
+}

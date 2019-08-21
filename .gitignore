@@ -1,0 +1,9 @@
+.DS_Store
+microservices-name/node_modules
+microservices-name/build/
+microservices-name/package-lock.json
+microservices-webapp/target/
+greeting.log
+name.log
+webapp.log
+geckodriver.log

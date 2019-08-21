@@ -1,0 +1,420 @@
+Description: >
+  Template which creates a pipeline for building and deploying an example polyglot application.
+
+Parameters:
+  SourceRepo:
+    Description: Enter the name of CodeCommit source repository
+    Type: String
+
+Resources:
+  ArtifactBucket:
+    Type: "AWS::S3::Bucket"
+    DeletionPolicy: Retain
+    Properties:
+      AccessControl: Private
+      BucketName:
+        Fn::Sub: ${AWS::StackName}-artifact
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: ${AWS::StackName}-artifact
+  CodeBuildServiceRole:
+      Type: AWS::IAM::Role
+      Properties:
+          RoleName:
+            Fn::Sub: CodeBuildServiceRole-${AWS::StackName}
+          AssumeRolePolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: "Allow"
+                Principal:
+                  Service:
+                    - "codebuild.amazonaws.com"
+                Action:
+                  - "sts:AssumeRole"
+          Path: /service-role/
+          Policies:
+              -
+                PolicyName:
+                  Fn::Sub: CodeBuildServiceRole-${AWS::StackName}-Policy
+                PolicyDocument:
+                  Version: "2012-10-17"
+                  Statement:
+                    -
+                      Effect: "Allow"
+                      Action:
+                        - "codecommit:GitPull"
+                      Resource:
+                        - Fn::Sub: arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${SourceRepo}
+                    -
+                      Effect: "Allow"
+                      Action:
+                        - "logs:CreateLogGroup"
+                        - "logs:CreateLogStream"
+                        - "logs:PutLogEvents"
+                      Resource:
+                        - Fn::Sub: arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/*
+                    -
+                      Effect: "Allow"
+                      Action:
+                        - "s3:PutObject"
+                        - "s3:GetObject"
+                        - "s3:GetObjectVersion"
+                        - "s3:ListBucket"
+                        - "s3:GetBucketAcl"
+                        - "s3:GetBucketLocation"
+                      Resource:
+                        - Fn::Sub: arn:aws:s3:::${AWS::StackName}-artifact/*
+                        - Fn::Sub: arn:aws:s3:::${AWS::StackName}-artifact
+                        - Fn::Sub: arn:aws:s3:::codepipeline-${AWS::Region}-*
+  CloudFormationRole:
+      Type: AWS::IAM::Role
+      Properties:
+          RoleName:
+            Fn::Sub: CFNServiceRole-${AWS::StackName}
+          AssumeRolePolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: "Allow"
+                Principal:
+                  Service:
+                    - "cloudformation.amazonaws.com"
+                Action:
+                  - "sts:AssumeRole"
+          Path: /service-role/
+          Policies:
+              -
+                PolicyName:
+                  Fn::Sub: CFNServiceRole-${AWS::StackName}-Policy
+                PolicyDocument:
+                  Version: "2012-10-17"
+                  Statement:
+                    -
+                      Effect: "Allow"
+                      Action:
+                        - "iam:TagRole"
+                        - "iam:UntagRole"
+                        - "iam:GetRole"
+                        - "iam:DeleteRole"
+                        - "iam:CreateRole"
+                        - "iam:GetRolePolicy"
+                        - "iam:PutRolePolicy"
+                        - "iam:DetachRolePolicy"
+                        - "iam:DeleteRolePolicy"
+                        - "iam:AttachRolePolicy"
+                        - "iam:ListRoleTags"
+                      Resource:
+                        - Fn::Sub: arn:aws:iam::${AWS::AccountId}:role/*
+                    -
+                      Effect: "Allow"
+                      Action:
+                        - "kms:Decrypt"
+                        - "kms:Encrypt"
+                        - "kms:CreateGrant"
+                        - "kms:DescribeKey"
+                        - "kms:GenerateDataKey"
+                        - "kms:TagResource"
+                        - "kms:UntagResource"
+                      Resource:
+                        - Fn::Sub: arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/*
+                    -
+                      Effect: "Allow"
+                      Action:
+                        - "dynamodb:CreateTable"
+                        - "dynamodb:DeleteTable"
+                        - "dynamodb:DescribeTable"
+                        - "dynamodb:UpdateTable"
+                        - "dynamodb:ListTagsOfResource"
+                        - "dynamodb:TagResource"
+                        - "dynamodb:UntagResource"
+                      Resource:
+                        - Fn::Sub: arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:table/*
+                    -
+                      Effect: "Allow"
+                      Action:
+                        - "ssm:PutParameter"
+                        - "ssm:DeleteParameter"
+                        - "ssm:DeleteParameters"
+                        - "ssm:GetParameter"
+                        - "ssm:GetParameters"
+                        - "ssm:AddTagsToResource"
+                        - "ssm:ListTagsForResource"
+                        - "ssm:RemoveTagsFromResource"
+                      Resource:
+                        - Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/*
+                    -
+                      Effect: "Allow"
+                      Action:
+                        - "cloudwatch:PutMetricAlarm"
+                        - "cloudwatch:DeleteAlarms"
+                        - "cloudwatch:TagResource"
+                        - "cloudwatch:UntagResource"
+                        - "cloudwatch:DescribeAlarms"
+                        - "cloudwatch:DescribeAlarmsForMetric"
+                      Resource:
+                        - Fn::Sub: arn:aws:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:*
+                    -
+                      Effect: "Allow"
+                      Action:
+                        - "codedeploy:ListDeployments"
+                        - "codedeploy:BatchGetDeployments"
+                        - "codedeploy:GetDeployment"
+                        - "codedeploy:DeleteDeployment"
+                        - "codedeploy:CreateDeployment"
+                      Resource:
+                        - Fn::Sub: arn:aws:codedeploy:${AWS::Region}:${AWS::AccountId}:*
+                    -
+                      Effect: "Allow"
+                      Action:
+                        - "lambda:CreateFunction"
+                        - "lambda:TagResource"
+                        - "lambda:ListVersionsByFunction"
+                        - "lambda:GetFunction"
+                        - "lambda:ListAliases"
+                        - "lambda:UpdateFunctionConfiguration"
+                        - "lambda:GetFunctionConfiguration"
+                        - "lambda:UntagResource"
+                        - "lambda:UpdateAlias"
+                        - "lambda:UpdateFunctionCode"
+                        - "lambda:AddPermission"
+                        - "lambda:ListTags"
+                        - "lambda:DeleteAlias"
+                        - "lambda:DeleteFunction"
+                        - "lambda:PublishVersion"
+                        - "lambda:GetAlias"
+                        - "lambda:RemovePermission"
+                        - "lambda:GetPolicy"
+                        - "lambda:CreateAlias"
+                      Resource:
+                        - Fn::Sub: arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:*
+                    -
+                      Effect: "Allow"
+                      Action:
+                        - "apigateway:*"
+                      Resource:
+                        - Fn::Sub: arn:aws:apigateway:${AWS::Region}::*
+                    -
+                      Effect: "Allow"
+                      Action:
+                        - "cloudformation:*"
+                        - "iam:PassRole"
+                      Resource:
+                        - "*"
+                    -
+                      Effect: "Allow"
+                      Action:
+                        - "s3:GetObject"
+                        - "s3:ListBucket"
+                      Resource:
+                        - Fn::Sub: arn:aws:s3:::${AWS::StackName}-artifact/*
+                        - Fn::Sub: arn:aws:s3:::${AWS::StackName}-artifact
+                        - Fn::Sub: arn:aws:s3:::codepipeline-${AWS::Region}-*
+  CodePipelineRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName:
+        Fn::Sub: CodePipelineRole-${AWS::StackName}
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "codepipeline.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: /
+      Policies:
+        -
+          PolicyName:
+            Fn::Sub: CodePipelineRole-${AWS::StackName}-Policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: "Allow"
+                Action:
+                  - "s3:DeleteObject"
+                  - "s3:GetObject"
+                  - "s3:GetObjectVersion"
+                  - "s3:ListBucket"
+                  - "s3:PutObject"
+                  - "s3:GetBucketPolicy"
+                Resource:
+                  - Fn::Sub: arn:aws:s3:::${AWS::StackName}-artifact
+                  - Fn::Sub: arn:aws:s3:::${AWS::StackName}-artifact/*
+              -
+                Effect: "Allow"
+                Action:
+                  - "codecommit:ListBranches"
+                  - "codecommit:ListRepositories"
+                  - "codecommit:BatchGetRepositories"
+                  - "codecommit:Get*"
+                  - "codecommit:GitPull"
+                  - "codecommit:UploadArchive"
+                Resource:
+                  - Fn::Sub: arn:aws:codecommit:${AWS::Region}:${AWS::AccountId}:${SourceRepo}
+              -
+                Effect: "Allow"
+                Action:
+                  - "codebuild:StartBuild"
+                  - "codebuild:BatchGetBuilds"
+                Resource:
+                  - Fn::Sub: arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:project/PolyglotBuild-${AWS::StackName}
+                  - Fn::Sub: arn:aws:codebuild:${AWS::Region}:${AWS::AccountId}:build/PolyglotBuild-${AWS::StackName}:*
+              -
+                Effect: "Allow"
+                Action:
+                  - "cloudformation:*"
+                  - "iam:PassRole"
+                Resource:
+                  - "*"
+  PolyglotBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name:
+        Fn::Sub: PolyglotBuild-${AWS::StackName}
+      Description: Build and Test Polyglot Application
+      ServiceRole:
+        Fn::GetAtt: [ CodeBuildServiceRole, Arn ]
+      Artifacts:
+        Type: S3
+        Location:
+          Ref: ArtifactBucket
+        Name:
+          Fn::Sub: PolyglotBuild-${AWS::StackName}
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_MEDIUM
+        Image: aws/codebuild/standard:2.0
+        PrivilegedMode: True
+        ImagePullCredentialsType: CODEBUILD
+        EnvironmentVariables:
+          - Name: ARTIFACT_BUCKET
+            Value: !Ref ArtifactBucket
+      Source:
+        Location:
+          Fn::Sub: https://git-codecommit.${AWS::Region}.amazonaws.com/v1/repos/${SourceRepo}
+        Type: CODECOMMIT
+      TimeoutInMinutes: 15
+      EncryptionKey:
+        Fn::Sub: arn:aws:kms:${AWS::Region}:${AWS::AccountId}:alias/aws/s3
+      Tags:
+        - Key: Name
+          Value:
+            Fn::Sub: PolyglotBuild-${AWS::StackName}
+  PolyglotPipeline:
+    DependsOn: PolyglotBuildProject
+    Type: "AWS::CodePipeline::Pipeline"
+    Properties:
+      Name:
+        Fn::Sub: PolyglotPipeline-${AWS::StackName}
+      RoleArn:
+          Fn::GetAtt: [ CodePipelineRole, Arn ]
+      Stages:
+        -
+          Name: Source
+          Actions:
+            -
+              Name: BuildSource
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Version: "1"
+                Provider: CodeCommit
+              OutputArtifacts:
+                -
+                  Name: SourceOutput
+              Configuration:
+                BranchName: master
+                PollForSourceChanges: False
+                RepositoryName: !Ref SourceRepo
+              RunOrder: 1
+        -
+          Name: Build
+          Actions:
+            -
+              Name: PolyglotBuild
+              InputArtifacts:
+                - Name: SourceOutput
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: "1"
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Sub PolyglotBuild-${AWS::StackName}
+              OutputArtifacts:
+                -
+                  Name: BuildArtifact
+              RunOrder: 1
+        -
+          Name: Deploy
+          Actions:
+            -
+              Name: Deploy-Greeting-MicroService
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: "1"
+                Provider: CloudFormation
+              InputArtifacts:
+                - Name: BuildArtifact
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                Capabilities: CAPABILITY_AUTO_EXPAND,CAPABILITY_IAM
+                RoleArn: 
+                  Fn::GetAtt: [ CloudFormationRole, Arn ]
+                StackName: !Sub greeting-ms-${AWS::StackName}
+                TemplatePath: BuildArtifact::greeting-sam-packaged.yaml
+              RunOrder: 1
+            -
+              Name: Deploy-Name-MicroService
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: "1"
+                Provider: CloudFormation
+              InputArtifacts:
+                - Name: BuildArtifact
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                Capabilities: CAPABILITY_AUTO_EXPAND,CAPABILITY_IAM
+                RoleArn: 
+                  Fn::GetAtt: [ CloudFormationRole, Arn ]
+                StackName: !Sub name-ms-${AWS::StackName}
+                TemplatePath: BuildArtifact::name-sam-packaged.yaml
+              RunOrder: 2
+            -
+              Name: Deploy-WebApp-MicroService
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: "1"
+                Provider: CloudFormation
+              InputArtifacts:
+                - Name: BuildArtifact
+              Configuration:
+                ActionMode: CREATE_UPDATE
+                Capabilities: CAPABILITY_AUTO_EXPAND,CAPABILITY_IAM
+                RoleArn: 
+                  Fn::GetAtt: [ CloudFormationRole, Arn ]
+                StackName: !Sub webapp-ms-${AWS::StackName}
+                TemplatePath: BuildArtifact::webapp-sam-packaged.yaml
+              RunOrder: 3
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactBucket
+
+Outputs:
+  BuildProjectName:
+    Description: "Name of the CodeBuild project"
+    Value:
+      Fn::Sub: PolyglotBuild-${AWS::StackName}
+  PipelineName:
+    Description: "Name of the Pipeline"
+    Value: 
+      Fn::Sub: PolyglotPipeline-${AWS::StackName}

@@ -1,0 +1,69 @@
+version: 0.2
+
+env:
+  variables:
+    ARTIFACT_BUCKET: "polyglot-codebuild-artifact-eu-west-1"
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 8
+      java: openjdk8
+      python: 3.7
+      docker: 18
+    commands:
+      - pip3 install --upgrade aws-sam-cli selenium pylint
+  pre_build:
+    commands:
+      - python --version
+      - pylint $CODEBUILD_SRC_DIR/microservices-greeting/greeting_handler.py
+      - own_ip=`hostname -i`
+      - sed -ie "s/CODEBUILD_IP/$own_ip/g" $CODEBUILD_SRC_DIR/env-webapp.json
+  build:
+    commands:
+      - node --version
+      - cd $CODEBUILD_SRC_DIR/microservices-name
+      - npm install
+      - npm run build
+      - java -version
+      - cd $CODEBUILD_SRC_DIR/microservices-webapp
+      - mvn clean package -Plambda
+      - cd $CODEBUILD_SRC_DIR
+      - |
+        sam package --template-file greeting-sam.yaml --output-template-file greeting-sam-packaged.yaml \
+        --s3-bucket $ARTIFACT_BUCKET
+      - |
+        sam package --template-file name-sam.yaml --output-template-file name-sam-packaged.yaml \
+        --s3-bucket $ARTIFACT_BUCKET
+      - |
+        sam package --template-file webapp-sam.yaml --output-template-file webapp-sam-packaged.yaml \
+        --s3-bucket $ARTIFACT_BUCKET
+  post_build:
+    commands:
+      - cd $CODEBUILD_SRC_DIR
+      - echo "Starting local DynamoDB instance"
+      - docker network create codebuild-local
+      - docker run -d -p 8000:8000 --network codebuild-local --name dynamodb amazon/dynamodb-local
+      - |
+        aws dynamodb create-table --endpoint-url http://127.0.0.1:8000 --table-name NamesTable \
+        --attribute-definitions AttributeName=Id,AttributeType=S --key-schema AttributeName=Id,KeyType=HASH \
+        --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5
+      - aws dynamodb --endpoint-url http://127.0.0.1:8000 batch-write-item --cli-input-json file://ddb_names.json
+      - echo "Starting APIs locally..."
+      - nohup sam local start-api --template greeting-sam.yaml --port 3000 --host 0.0.0.0 &> greeting.log &
+      - |
+        nohup sam local start-api --template name-sam.yaml --port 3001 --host 0.0.0.0 --env-vars env.json \
+        --docker-network codebuild-local &> name.log &
+      - |
+        nohup sam local start-api --template webapp-sam.yaml --port 3002 --host 0.0.0.0 \
+        --env-vars env-webapp.json &> webapp.log &
+      - cd $CODEBUILD_SRC_DIR/website
+      - nohup python3 -m http.server 8080 &>webserver.log &
+      - sleep 20
+      - echo "Starting headless UI testing..."
+      - python $CODEBUILD_SRC_DIR/tests/testsuite.py
+artifacts:
+  files:
+    - greeting-sam-packaged.yaml
+    - name-sam-packaged.yaml
+    - webapp-sam-packaged.yaml
