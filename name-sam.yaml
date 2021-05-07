@@ -27,7 +27,7 @@ Resources:
     Properties:
       CodeUri: ./microservices-name/build/main/
       Handler: index.handler
-      Runtime: nodejs10.x
+      Runtime: nodejs14.x
       MemorySize: 512
       Timeout: 20
       Policies:
